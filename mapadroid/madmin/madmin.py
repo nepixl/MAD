@@ -21,8 +21,8 @@ from mapadroid.utils.logging import InterceptHandler, logger
 from mapadroid.websocket.WebsocketServer import WebsocketServer
 
 app = Flask(__name__,
-                static_folder=os.path.join(mapadroid.MAD_ROOT, 'static/madmin/static'),
-                template_folder=os.path.join(mapadroid.MAD_ROOT, 'static/madmin/templates'))
+            static_folder=os.path.join(mapadroid.MAD_ROOT, 'static/madmin/static'),
+            template_folder=os.path.join(mapadroid.MAD_ROOT, 'static/madmin/templates'))
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.config['UPLOAD_FOLDER'] = 'temp'
 app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
@@ -62,27 +62,39 @@ class madmin(object):
         self._jobstatus = jobstatus
         self._plugin_hotlink: list = []
 
+        self.path = path(self._db_wrapper, self._args, self._app, self._mapping_manager, self._jobstatus,
+                         self._data_manager, self._plugin_hotlink)
+        self.map = map(self._db_wrapper, self._args, self._mapping_manager, self._app, self._data_manager)
+        self.statistics = statistics(self._db_wrapper, self._args, app, self._mapping_manager, self._data_manager)
+        self.control = control(self._db_wrapper, self._args, self._mapping_manager, self._ws_server, logger,
+                                self._app, self._device_updater)
+
+        self.APIEntry = APIEntry(logger, self._app, self._data_manager, self._mapping_manager, self._ws_server,
+                                  self._args.config_mode)
+        self.config = config(self._db_wrapper, self._args, logger, self._app, self._mapping_manager,
+                              self._data_manager)
+
+        self.apk_manager = apk_manager(self._db_wrapper, self._args, self._app, self._mapping_manager, self._jobstatus)
+        self.event = event(self._db_wrapper, self._args, logger, self._app, self._mapping_manager, self._data_manager)
+
     @logger.catch()
     def madmin_start(self):
         # load routes
         if self._args.madmin_base_path:
             self._app.wsgi_app = ReverseProxied(self._app.wsgi_app, script_name=self._args.madmin_base_path)
 
-        statistics(self._db_wrapper, self._args, app, self._mapping_manager, self._data_manager)
-        control(self._db_wrapper, self._args, self._mapping_manager, self._ws_server, logger, self._app, self._device_updater)
-        map(self._db_wrapper, self._args, self._mapping_manager, self._app, self._data_manager)
-        APIEntry(logger, self._app, self._data_manager, self._mapping_manager, self._ws_server, self._args.config_mode)
-        config(self._db_wrapper, self._args, logger, self._app, self._mapping_manager, self._data_manager)
-        path(self._db_wrapper, self._args, self._app, self._mapping_manager, self._jobstatus, self._data_manager, self._plugin_hotlink)
-        apk_manager(self._db_wrapper, self._args, self._app, self._mapping_manager, self._jobstatus)
-        event(self._db_wrapper, self._args, logger, self._app, self._mapping_manager, self._data_manager)
-
         self._app.logger.removeHandler(default_handler)
         logging.basicConfig(handlers=[InterceptHandler()], level=0)
 
-        self._app.run(host=self._args.madmin_ip, port=int(self._args.madmin_port), threaded=True)
+        # start modules
+        self.path.start_modul()
+        self.map.start_modul()
+        self.statistics.start_modul()
+        self.config.start_modul()
+        self.apk_manager.start_modul()
+        self.event.start_modul()
+        self.control.start_modul()
 
-    def start_app(self):
         self._app.run(host=self._args.madmin_ip, port=int(self._args.madmin_port), threaded=True)
 
     def add_route(self, routes):
@@ -96,8 +108,11 @@ class madmin(object):
     def register_plugin(self, pluginname):
         app.register_blueprint(pluginname)
 
-    def add_plugin_hotlink(self, name, url, plugin, description):
-        self._plugin_hotlink.append((plugin, name, url, description))
+    def add_plugin_hotlink(self, name, link, plugin, description, author, url, linkdescription, version):
+        self._plugin_hotlink.append({"Plugin": plugin, "linkname": name, "linkurl": link,
+                                     "description": description, "author": author, "authorurl": url,
+                                     "linkdescription": linkdescription, 'version': version})
+
 
 
 

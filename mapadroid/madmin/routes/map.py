@@ -19,7 +19,7 @@ from mapadroid.utils.s2Helper import S2Helper
 cache = Cache(config={'CACHE_TYPE': 'simple'})
 
 
-class map(object):
+class map:
     def __init__(self, db: DbWrapper, args, mapping_manager: MappingManager, app, data_manager):
         self._db: DbWrapper = db
         self._args = args
@@ -33,7 +33,6 @@ class map(object):
         self._data_manager = data_manager
 
         cache.init_app(self._app)
-        self.add_route()
 
     def add_route(self):
         routes = [
@@ -52,6 +51,9 @@ class map(object):
         ]
         for route, view_func in routes:
             self._app.route(route)(view_func)
+
+    def start_modul(self):
+        self.add_route()
 
     @auth_required
     def map(self):

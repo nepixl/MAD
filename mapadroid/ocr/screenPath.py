@@ -56,8 +56,9 @@ class WordToScreenMatching(object):
             temp_accounts = temp_accounts.replace(' ', '').split('|')
             for account in temp_accounts:
                 ptc_temp = account.split(',')
-                if 2 < len(ptc_temp) > 2:
+                if len(ptc_temp) != 2:
                     logger.warning('Cannot use this account (Wrong format!): {}'.format(str(account)))
+                    continue
                 username = ptc_temp[0]
                 password = ptc_temp[1]
                 self._PTC_accounts.append(Login_PTC(username, password))
@@ -272,8 +273,7 @@ class WordToScreenMatching(object):
         elif screentype == ScreenType.PTC:
             return self.__handle_ptc_login()
         elif screentype == ScreenType.FAILURE:
-            self.__handle_returning_player_or_wrong_credentials()
-            screentype = ScreenType.ERROR
+            screentype = self.__handle_failure_screen(diff, global_dict)
         elif screentype == ScreenType.RETRY:
             self.__handle_retry_screen(diff, global_dict)
         elif screentype == ScreenType.WRONG:
@@ -431,6 +431,20 @@ class WordToScreenMatching(object):
         logger.info("Sleeping 50 seconds - please wait!")
         time.sleep(50)
         return ScreenType.PTC
+
+    def __handle_failure_screen(self, diff, global_dict) -> ScreenType:
+        if self._logintype == LoginType.ptc:
+            click_text = 'DIFFERENT,AUTRE,AUTORISER,ANDERES,KONTO,ACCOUNT,VERSUCHEN'
+            n_boxes = len(global_dict['level'])
+            for i in range(n_boxes):
+                if any(elem.lower() in (global_dict['text'][i].lower()) for elem in click_text.split(",")):
+                    self._click_center_button(diff, global_dict, i)
+            time.sleep(5)
+            screentype = ScreenType.FAILURE
+        else:
+            self.__handle_returning_player_or_wrong_credentials()
+            screentype = ScreenType.ERROR
+        return screentype
 
     def __handle_returning_player_or_wrong_credentials(self) -> None:
         self._nextscreen = ScreenType.UNDEFINED

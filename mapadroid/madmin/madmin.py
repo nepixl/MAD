@@ -7,6 +7,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import mapadroid
 from mapadroid.db.DbWrapper import DbWrapper
+from mapadroid.mad_apk import AbstractAPKStorage
 from mapadroid.madmin.api import APIEntry
 from mapadroid.madmin.reverseproxy import ReverseProxied
 from mapadroid.madmin.routes.apks import apk_manager
@@ -19,6 +20,7 @@ from mapadroid.madmin.routes.event import event
 from mapadroid.utils import MappingManager
 from mapadroid.utils.logging import InterceptHandler, logger
 from mapadroid.websocket.WebsocketServer import WebsocketServer
+
 
 app = Flask(__name__,
             static_folder=os.path.join(mapadroid.MAD_ROOT, 'static/madmin/static'),
@@ -49,7 +51,7 @@ def internal_error(self, exception):
 
 class madmin(object):
     def __init__(self, args, db_wrapper: DbWrapper, ws_server, mapping_manager: MappingManager, data_manager,
-                     deviceUpdater, jobstatus):
+                     deviceUpdater, jobstatus, storage_obj: AbstractAPKStorage):
 
         self._db_wrapper: DbWrapper = db_wrapper
         self._args = args
@@ -60,6 +62,7 @@ class madmin(object):
         self._ws_server: WebsocketServer = ws_server
         self._data_manager = data_manager
         self._jobstatus = jobstatus
+        self._storage_obj = storage_obj
         self._plugin_hotlink: list = []
 
         self.path = path(self._db_wrapper, self._args, self._app, self._mapping_manager, self._jobstatus,
@@ -70,11 +73,12 @@ class madmin(object):
                                 self._app, self._device_updater)
 
         self.APIEntry = APIEntry(logger, self._app, self._data_manager, self._mapping_manager, self._ws_server,
-                                  self._args.config_mode)
+                                  self._args.config_mode, self._storage_obj)
         self.config = config(self._db_wrapper, self._args, logger, self._app, self._mapping_manager,
                               self._data_manager)
 
-        self.apk_manager = apk_manager(self._db_wrapper, self._args, self._app, self._mapping_manager, self._jobstatus)
+        self.apk_manager = apk_manager(self._db_wrapper, self._args, self._app, self._mapping_manager, self._jobstatus,
+                                       self._storage_obj)
         self.event = event(self._db_wrapper, self._args, logger, self._app, self._mapping_manager, self._data_manager)
 
     @logger.catch()
@@ -112,9 +116,6 @@ class madmin(object):
         self._plugin_hotlink.append({"Plugin": plugin, "linkname": name, "linkurl": link,
                                      "description": description, "author": author, "authorurl": url,
                                      "linkdescription": linkdescription, 'version': version})
-
-
-
 
 
 
